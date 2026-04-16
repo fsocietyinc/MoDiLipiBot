@@ -61,9 +61,15 @@ logger = logging.getLogger(__name__)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
 
-    user = update.effective_user
+    message = update.message
+    if message is None:
+        return
 
-    await update.message.reply_html(
+    user = update.effective_user
+    if user is None:
+        return  
+
+    await message.reply_html(
         rf"नमस्कार {user.mention_html()}, कृपया तुमचा मोडीमधे हवा असणार मजकूर देवनागरीत लिहून पाठवा.",
         reply_markup=ForceReply(selective=True),
     )
@@ -72,7 +78,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /help is issued."""
 
-    await update.message.reply_text(
+    message = update.message
+    if message is None:
+        return
+
+    await message.reply_text(
         "Send me text in Devanagari script, and I'll convert it to Modi Lipi and send it as an image!\n\n"
         "Commands:\n"
         "/start - Start the bot\n"
@@ -81,9 +91,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def translated_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.message
+    if message is None or message.text is None:
+        return
 
-    text = update.message.text
-    translated_text = transliterate.process("Devanagari", "Modi", text)
+    translated_text = transliterate.process("Devanagari", "Modi", message.text)
     img = convert(
         quote=translated_text,
         fg="white",
@@ -94,11 +106,10 @@ async def translated_text(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         height=670,
     )
 
-    # Save The Image as a Png file
-    img.save(str(BASE_DIR / "assets" / "generated_image" / "quote.png"))
-    await update.message.reply_photo(
-        photo=open(str(BASE_DIR / "assets" / "generated_image" / "quote.png"), "rb")
-    )
+    # Save the image as a PNG file
+    img_path = BASE_DIR / "assets" / "generated_image" / "quote.png"
+    img.save(str(img_path))
+    await message.reply_photo(photo=open(str(img_path), "rb"))
 
 
 def main() -> None:

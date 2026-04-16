@@ -35,7 +35,7 @@ def convert(
     quote = ImageFont.truetype(
         str(BASE_DIR / "assets" / "fonts" / "NotoSansModiAdvanced.ttf"),
         font_size if font_size else 70,
-        layout_engine=ImageFont.LAYOUT_RAQM,
+        layout_engine=ImageFont.Layout.RAQM,
     )
 
     img = Image.new("RGB", (x1, y1), color=(255, 255, 255))
