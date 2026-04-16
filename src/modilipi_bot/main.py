@@ -106,6 +106,9 @@ async def translated_text(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         height=670,
     )
 
+    # Send the translated text first
+    await message.reply_text(f"Modi Lipi: {translated_text}")
+
     # Save the image as a PNG file
     img_path = BASE_DIR / "assets" / "generated_image" / "quote.png"
     img.save(str(img_path))
