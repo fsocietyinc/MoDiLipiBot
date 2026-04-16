@@ -1,0 +1,8 @@
+services:
+  modilipibot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - TOKEN=${TOKEN}
+    restart: unless-stopped
