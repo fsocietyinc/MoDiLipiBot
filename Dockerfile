@@ -1,17 +1,19 @@
-FROM python:3.13-slim
-
+FROM python:3.13-slim AS build
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+COPY uv.lock pyproject.toml ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --no-install-project --no-dev
+COPY . .
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
-# Install pip dependencies from the lock/requirements file.
-COPY requirements.txt pyproject.toml /app/
-RUN python -m pip install --upgrade pip setuptools wheel && \
-    python -m pip install --no-cache-dir -r requirements.txt
-
-# Copy source and assets into the container.
-COPY src /app/src
-COPY assets /app/assets
-
-ENV PYTHONPATH=/app/src
-ENV PYTHONUNBUFFERED=1
-
-CMD ["python", "-m", "modilipi_bot.main"]
+FROM python:3.13-slim AS runtime
+ENV PATH="/app/.venv/bin:$PATH"
+RUN groupadd -g 1001 appgroup && \
+    useradd -u 1001 -g appgroup -m -d /app -s /bin/false appuser
+WORKDIR /app
+COPY --from=build --chown=appuser:appgroup /app .
+USER appuser
+ENTRYPOINT ["python", "-m", "modilipi_bot.main"]
