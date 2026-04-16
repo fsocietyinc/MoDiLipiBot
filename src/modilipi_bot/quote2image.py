@@ -1,10 +1,20 @@
 import base64
-import os
 from io import BytesIO
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def get_project_root():
+    """Find the project root by searching for pyproject.toml upwards."""
+    current = Path(__file__).resolve().parent
+    for parent in [current] + list(current.parents):
+        if (parent / "pyproject.toml").exists():
+            return parent
+    raise FileNotFoundError("Could not find project root (pyproject.toml not found)")
+
+
+BASE_DIR = get_project_root()
 
 
 def convert(
@@ -23,14 +33,14 @@ def convert(
     sentence = f"{quote}"
 
     quote = ImageFont.truetype(
-        os.path.join(BASE_DIR, "MoDiLipiBot\\fonts", "NotoSansModiAdvanced.ttf"),
-        70,
+        str(BASE_DIR / "assets" / "fonts" / "NotoSansModiAdvanced.ttf"),
+        font_size if font_size else 70,
         layout_engine=ImageFont.LAYOUT_RAQM,
     )
 
     img = Image.new("RGB", (x1, y1), color=(255, 255, 255))
 
-    back = Image.open(image, "r")
+    back = Image.open(image)
     img_w, img_h = back.size
     bg_w, bg_h = img.size
     offset = ((bg_w - img_w) // 2, (bg_h - img_h) // 2)
@@ -41,7 +51,8 @@ def convert(
 
     sum = 0
     for letter in sentence:
-        sum += d.textsize(letter, font=quote)[0]
+        bbox = d.textbbox((0, 0), letter, font=quote)
+        sum += bbox[2] - bbox[0]
     average_length_of_letter = sum / len(sentence)
 
     number_of_letters_for_each_line = (x1 / 1.618) / average_length_of_letter
@@ -60,9 +71,9 @@ def convert(
             else:
                 fresh_sentence += letter
         incrementer += 1
-    dim = d.textsize(fresh_sentence, font=quote)
-    x2 = dim[0]
-    y2 = dim[1]
+    bbox = d.textbbox((0, 0), fresh_sentence, font=quote)
+    x2 = bbox[2] - bbox[0]
+    y2 = bbox[3] - bbox[1]
 
     qx = x1 / 2 - x2 / 2
     qy = y1 / 2 - y2 / 2

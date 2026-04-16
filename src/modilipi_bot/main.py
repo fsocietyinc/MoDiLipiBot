@@ -1,5 +1,6 @@
 import logging
 import os
+from pathlib import Path
 
 from aksharamukha import transliterate
 from telegram import ForceReply, Update
@@ -14,7 +15,17 @@ from telegram.ext import (
 
 from modilipi_bot.quote2image import convert
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def get_project_root():
+    """Find the project root by searching for pyproject.toml upwards."""
+    current = Path(__file__).resolve().parent
+    for parent in [current] + list(current.parents):
+        if (parent / "pyproject.toml").exists():
+            return parent
+    raise FileNotFoundError("Could not find project root (pyproject.toml not found)")
+
+
+BASE_DIR = get_project_root()
 
 TOKEN = os.environ["TOKEN"]
 
@@ -61,7 +72,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /help is issued."""
 
-    await update.message.reply_text("Help!")
+    await update.message.reply_text(
+        "Send me text in Devanagari script, and I'll convert it to Modi Lipi and send it as an image!\n\n"
+        "Commands:\n"
+        "/start - Start the bot\n"
+        "/help - Show this help message"
+    )
 
 
 async def translated_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -71,9 +87,7 @@ async def translated_text(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     img = convert(
         quote=translated_text,
         fg="white",
-        image=os.path.join(
-            BASE_DIR, "MoDiLipiBot\\background_image", "background1.png"
-        ),
+        image=str(BASE_DIR / "assets" / "background_image" / "background1.png"),
         border_color="white",
         font_size=70,
         width=1200,
@@ -81,13 +95,9 @@ async def translated_text(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
 
     # Save The Image as a Png file
-    generated_image = img.save(
-        os.path.join(BASE_DIR, "MoDiLipiBot\\generated_image", "quote.png")
-    )
+    img.save(str(BASE_DIR / "assets" / "generated_image" / "quote.png"))
     await update.message.reply_photo(
-        photo=open(
-            os.path.join(BASE_DIR, "MoDiLipiBot\\generated_image", "quote.png"), "rb"
-        )
+        photo=open(str(BASE_DIR / "assets" / "generated_image" / "quote.png"), "rb")
     )
 
 
