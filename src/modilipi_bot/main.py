@@ -107,7 +107,7 @@ async def translated_text(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
 
     # Send the translated text first
-    await message.reply_text(f"Modi Lipi: {translated_text}")
+    await message.reply_text(f"Modi Lipi: ```\n{translated_text}\n```", parse_mode="MarkdownV2")
 
     # Save the image as a PNG file
     img_path = BASE_DIR / "assets" / "generated_image" / "quote.png"
