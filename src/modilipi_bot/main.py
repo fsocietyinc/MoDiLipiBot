@@ -12,7 +12,7 @@ from telegram.ext import (
     filters,
 )
 
-from src.modilipi_bot.quote2image import convert
+from modilipi_bot.quote2image import convert
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
