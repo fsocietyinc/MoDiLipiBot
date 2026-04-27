@@ -1,6 +1,8 @@
 # MoDiLipiBot | मोडी लिपी बॉट 
 
-![MoDiLipiBot Example](chitra.PNG)
+<p align="center">
+  <img src="Chitra.jpg" width="400" alt="MoDiLipiBot Example" />
+</p>
 
 [👉 **Click here to use the Telegram Bot**](https://t.me/marathiMoDiLiPibot)
 
