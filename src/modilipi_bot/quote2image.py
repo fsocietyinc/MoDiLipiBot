@@ -2,7 +2,7 @@ import base64
 from io import BytesIO
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 
 def get_project_root():
@@ -27,71 +27,84 @@ def convert(
     width=None,
     height=None,
 ):
-    x1 = width if width else 612
-    y1 = height if height else 612
+    x1 = width if width else 1920
+    y1 = height if height else 1080
+    font_size = font_size if font_size else 120
 
     sentence = f"{quote}"
 
-    quote = ImageFont.truetype(
+    quote_font = ImageFont.truetype(
         str(BASE_DIR / "assets" / "fonts" / "NotoSansModiAdvanced.ttf"),
-        font_size if font_size else 70,
+        font_size,
         layout_engine=ImageFont.Layout.RAQM,
     )
 
     img = Image.new("RGB", (x1, y1), color=(255, 255, 255))
 
+    # Properly resize and crop the background image to fill the canvas
     back = Image.open(image)
-    img_w, img_h = back.size
-    bg_w, bg_h = img.size
-    offset = ((bg_w - img_w) // 2, (bg_h - img_h) // 2)
-    bback = back.filter(ImageFilter.BLUR)
-    img.paste(bback, offset)
+    back = ImageOps.fit(back, (x1, y1), Image.Resampling.LANCZOS)
+    
+    # Apply a high-quality blur
+    bback = back.filter(ImageFilter.GaussianBlur(radius=8))
+    img.paste(bback, (0, 0))
 
     d = ImageDraw.Draw(img)
 
-    sum = 0
-    for letter in sentence:
-        bbox = d.textbbox((0, 0), letter, font=quote)
-        sum += bbox[2] - bbox[0]
-    average_length_of_letter = sum / len(sentence)
-
-    number_of_letters_for_each_line = (x1 / 1.618) / average_length_of_letter
-    incrementer = 0
-    fresh_sentence = ""
-
-    for letter in sentence:
-        if letter == "-":
-            fresh_sentence += "\n\n" + letter
-        elif incrementer < number_of_letters_for_each_line:
-            fresh_sentence += letter
-        else:
-            if letter == " ":
-                fresh_sentence += "\n"
-                incrementer = 0
+    # Better text wrapping using exact text width
+    max_text_width = x1 * 0.85  # Use 85% of the image width
+    lines = []
+    
+    for paragraph in sentence.split('\n'):
+        if not paragraph.strip():
+            lines.append("")
+            continue
+            
+        words = paragraph.split(' ')
+        current_line = []
+        for word in words:
+            if word == "-":
+                if current_line:
+                    lines.append(' '.join(current_line))
+                    current_line = []
+                lines.append("")
+                lines.append("-")
             else:
-                fresh_sentence += letter
-        incrementer += 1
-    bbox = d.textbbox((0, 0), fresh_sentence, font=quote)
+                test_line = ' '.join(current_line + [word]) if current_line else word
+                if d.textlength(test_line, font=quote_font) <= max_text_width:
+                    current_line.append(word)
+                else:
+                    if current_line:
+                        lines.append(' '.join(current_line))
+                        current_line = [word]
+                    else:
+                        lines.append(word)
+                        current_line = []
+        if current_line:
+            lines.append(' '.join(current_line))
+
+    fresh_sentence = '\n'.join(lines).strip()
+
+    # Calculate text bounding box for centering
+    bbox = d.multiline_textbbox((0, 0), fresh_sentence, font=quote_font, align="center")
     x2 = bbox[2] - bbox[0]
     y2 = bbox[3] - bbox[1]
 
     qx = x1 / 2 - x2 / 2
     qy = y1 / 2 - y2 / 2
 
-    d.text(
-        (qx - 1, qy - 1), fresh_sentence, align="center", font=quote, fill=border_color
+    # Draw text with high quality stroke instead of manual 1px offsets
+    stroke_w = max(1, font_size // 25)
+    
+    d.multiline_text(
+        (qx, qy), 
+        fresh_sentence, 
+        align="center", 
+        font=quote_font, 
+        fill=fg,
+        stroke_width=stroke_w,
+        stroke_fill=border_color
     )
-    d.text(
-        (qx + 1, qy - 1), fresh_sentence, align="center", font=quote, fill=border_color
-    )
-    d.text(
-        (qx - 1, qy + 1), fresh_sentence, align="center", font=quote, fill=border_color
-    )
-    d.text(
-        (qx + 1, qy + 1), fresh_sentence, align="center", font=quote, fill=border_color
-    )
-
-    d.text((qx, qy), fresh_sentence, align="center", font=quote, fill=fg)
 
     return img
 

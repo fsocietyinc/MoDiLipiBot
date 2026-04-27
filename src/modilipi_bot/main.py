@@ -96,10 +96,10 @@ async def _process_translation(message, text_to_translate: str) -> None:
         quote=translated_text_str,
         fg="white",
         image=str(BASE_DIR / "assets" / "background_image" / "background1.png"),
-        border_color="white",
-        font_size=70,
-        width=1200,
-        height=670,
+        border_color="black",
+        font_size=120,
+        width=1920,
+        height=1080,
     )
 
     # Send the translated text first, wrapped in HTML code block for easy copying
