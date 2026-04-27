@@ -12,6 +12,8 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+from telegram import BotCommand
+from html import escape
 
 from modilipi_bot.quote2image import convert
 
@@ -54,50 +56,44 @@ logger = logging.getLogger(__name__)
 
 
 # Define a few command handlers. These usually take the two arguments update and
-
 # context.
 
+async def post_init(application: Application) -> None:
+    """Set bot commands in Telegram menu."""
+    await application.bot.set_my_commands([
+        BotCommand("start", "Start the bot"),
+        BotCommand("help", "Show help message"),
+        BotCommand("generate", "Convert Devanagari to Modi Lipi"),
+    ])
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /start is issued."""
 
+
+async def start_help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a message when the command /start or /help is issued."""
     message = update.message
     if message is None:
         return
 
     user = update.effective_user
-    if user is None:
-        return  
+    greeting = rf"नमस्कार {user.mention_html()}," if user else "नमस्कार,"
 
-    await message.reply_html(
-        rf"नमस्कार {user.mention_html()}, कृपया तुमचा मोडीमधे हवा असणार मजकूर देवनागरीत लिहून पाठवा.",
-        reply_markup=ForceReply(selective=True),
-    )
-
-
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /help is issued."""
-
-    message = update.message
-    if message is None:
-        return
-
-    await message.reply_text(
+    help_text = (
+        f"{greeting}\n\n"
         "Send me text in Devanagari script, and I'll convert it to Modi Lipi and send it as an image!\n\n"
-        "Commands:\n"
-        "/start - Start the bot\n"
-        "/help - Show this help message"
+        "<b>Commands:</b>\n"
+        "/start or /help - Show this help message\n"
+        "/generate &lt;text&gt; - Convert the given text to Modi Lipi\n"
+        "/generate - Prompt for text to convert\n\n"
+        "<i>You can also just send me any Devanagari text directly to convert it.</i>"
     )
 
+    await message.reply_html(help_text)
 
-async def translated_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    message = update.message
-    if message is None or message.text is None:
-        return
 
-    translated_text = transliterate.process("Devanagari", "Modi", message.text)
+async def _process_translation(message, text_to_translate: str) -> None:
+    translated_text_str = transliterate.process("Devanagari", "Modi", text_to_translate)
     img = convert(
-        quote=translated_text,
+        quote=translated_text_str,
         fg="white",
         image=str(BASE_DIR / "assets" / "background_image" / "background1.png"),
         border_color="white",
@@ -106,8 +102,9 @@ async def translated_text(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         height=670,
     )
 
-    # Send the translated text first
-    await message.reply_text(f"Modi Lipi: ```\n{translated_text}\n```", parse_mode="MarkdownV2")
+    # Send the translated text first, wrapped in HTML code block for easy copying
+    safe_text = escape(translated_text_str)
+    await message.reply_html(f"<b>Modi Lipi:</b>\n\n<code>{safe_text}</code>")
 
     # Save the image as a PNG file
     img_path = BASE_DIR / "assets" / "generated_image" / "quote.png"
@@ -115,18 +112,42 @@ async def translated_text(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await message.reply_photo(photo=open(str(img_path), "rb"))
 
 
+async def generate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Convert text using /generate."""
+    message = update.message
+    if message is None:
+        return
+
+    if context.args:
+        text_to_translate = " ".join(context.args)
+        await _process_translation(message, text_to_translate)
+    else:
+        await message.reply_html(
+            "कृपया तुमचा मोडीमधे हवा असणार मजकूर देवनागरीत लिहून पाठवा.",
+            reply_markup=ForceReply(selective=True),
+        )
+
+
+async def translated_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Process any direct text messages."""
+    message = update.message
+    if message is None or message.text is None:
+        return
+
+    await _process_translation(message, message.text)
+
+
 def main() -> None:
     """Start the bot."""
 
     # Create the Application and pass it your bot's token.
-
-    application = Application.builder().token(TOKEN).build()
+    application = Application.builder().token(TOKEN).post_init(post_init).build()
 
     # on different commands - answer in Telegram
 
-    application.add_handler(CommandHandler("start", start))
-
-    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("start", start_help_command))
+    application.add_handler(CommandHandler("help", start_help_command))
+    application.add_handler(CommandHandler("generate", generate_command))
 
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, translated_text)
